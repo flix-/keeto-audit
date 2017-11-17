@@ -25,5 +25,5 @@ import org.syslog_ng.LogMessage;
 
 public interface EventWriter {
 
-	public void write(LogMessage logMessage) throws SQLException;
+  void write(LogMessage logMessage) throws SQLException;
 }

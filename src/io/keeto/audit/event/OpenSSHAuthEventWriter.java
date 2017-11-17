@@ -23,7 +23,7 @@ import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.sql.Timestamp;
+import java.time.OffsetDateTime;
 
 import org.syslog_ng.LogMessage;
 
@@ -31,41 +31,41 @@ import io.keeto.audit.util.KeetoAuditUtil;
 
 public class OpenSSHAuthEventWriter implements EventWriter {
 
-	private final String insertNewAuthPs = "INSERT INTO openssh_auth VALUES (?, ?, ?, ?, ?, ?)";
+  private final String insertNewAuthPs = "INSERT INTO openssh_auth VALUES (?, ?, ?, ?, ?, ?)";
 
-	private Connection conn;
-	
-	public OpenSSHAuthEventWriter(Connection conn) {
-		super();
-		if (conn == null) {
-			throw new IllegalArgumentException("conn == null");
-		}
-		this.conn = conn;
-	}
-	
-	@Override
-	public void write(LogMessage logMessage) throws SQLException {
-		if (logMessage == null) {
-			throw new IllegalArgumentException("logMessage == null");
-		}
-		PreparedStatement insertNewAuth = conn.prepareStatement(insertNewAuthPs);
+  private Connection conn;
 
-		BigDecimal sessionId = KeetoAuditUtil.getSessionIdFromDb(conn, logMessage);
-		if (sessionId == null) {
-			throw new IllegalStateException("session id not found");
-		}
-		Timestamp timestamp = KeetoAuditUtil.getTimestampFromLogMessage(logMessage);
-		String event = logMessage.getValue("KEETO_AUDIT_EVENT");
-		String username = logMessage.getValue("OPENSSH_USERNAME");
-		String hashAlgo = logMessage.getValue("OPENSSH_HASH_ALGO");
-		String fingerprint = logMessage.getValue("OPENSSH_FINGERPRINT");
+  public OpenSSHAuthEventWriter(Connection conn) {
+    super();
+    if (conn == null) {
+      throw new IllegalArgumentException("conn == null");
+    }
+    this.conn = conn;
+  }
 
-		insertNewAuth.setBigDecimal(1, sessionId);
-		insertNewAuth.setTimestamp(2, timestamp);
-		insertNewAuth.setString(3, event);
-		insertNewAuth.setString(4, username);
-		insertNewAuth.setString(5, hashAlgo);
-		insertNewAuth.setString(6, fingerprint);
-		insertNewAuth.executeUpdate();
-	}
+  @Override
+  public void write(LogMessage logMessage) throws SQLException {
+    if (logMessage == null) {
+      throw new IllegalArgumentException("logMessage == null");
+    }
+    PreparedStatement insertNewAuth = conn.prepareStatement(insertNewAuthPs);
+
+    BigDecimal sessionId = KeetoAuditUtil.getSessionIdFromDb(conn, logMessage);
+    if (sessionId == null) {
+      throw new IllegalStateException("session id not found");
+    }
+    OffsetDateTime timestamp = KeetoAuditUtil.timestampFromLogMessage(logMessage);
+    String event = logMessage.getValue("KEETO_AUDIT_EVENT");
+    String username = logMessage.getValue("OPENSSH_USERNAME");
+    String hashAlgo = logMessage.getValue("OPENSSH_HASH_ALGO");
+    String fingerprint = logMessage.getValue("OPENSSH_FINGERPRINT");
+
+    insertNewAuth.setBigDecimal(1, sessionId);
+    insertNewAuth.setObject(2, timestamp);
+    insertNewAuth.setString(3, event);
+    insertNewAuth.setString(4, username);
+    insertNewAuth.setString(5, hashAlgo);
+    insertNewAuth.setString(6, fingerprint);
+    insertNewAuth.executeUpdate();
+  }
 }

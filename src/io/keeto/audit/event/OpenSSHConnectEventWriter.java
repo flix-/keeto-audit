@@ -22,7 +22,7 @@ package io.keeto.audit.event;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.sql.Timestamp;
+import java.time.OffsetDateTime;
 
 import org.syslog_ng.LogMessage;
 
@@ -30,34 +30,34 @@ import io.keeto.audit.util.KeetoAuditUtil;
 
 public class OpenSSHConnectEventWriter implements EventWriter {
 
-	private final String insertNewConnectPs = "INSERT INTO openssh_connect VALUES (NULL, ?, ?, ?, ?)";
+  private final String insertNewConnectPs = "INSERT INTO openssh_connect VALUES (NULL, ?, ?, ?, ?)";
 
-	private Connection conn;
-	
-	public OpenSSHConnectEventWriter(Connection conn) {
-		super();
-		if (conn == null) {
-			throw new IllegalArgumentException("conn == null");
-		}
-		this.conn = conn;
-	}
+  private Connection conn;
 
-	@Override
-	public void write(LogMessage logMessage) throws SQLException {
-		if (logMessage == null) {
-			throw new IllegalArgumentException("logMessage == null");
-		}
-		PreparedStatement insertNewConnect = conn.prepareStatement(insertNewConnectPs);
+  public OpenSSHConnectEventWriter(Connection conn) {
+    super();
+    if (conn == null) {
+      throw new IllegalArgumentException("conn == null");
+    }
+    this.conn = conn;
+  }
 
-		Timestamp timestamp = KeetoAuditUtil.getTimestampFromLogMessage(logMessage);
-		String serverAddr = logMessage.getValue("HOST");
-		String clientAddr = logMessage.getValue("OPENSSH_CLIENT_ADDR");
-		int clientPort = Integer.parseInt(logMessage.getValue("OPENSSH_CLIENT_PORT"));
+  @Override
+  public void write(LogMessage logMessage) throws SQLException {
+    if (logMessage == null) {
+      throw new IllegalArgumentException("logMessage == null");
+    }
+    PreparedStatement insertNewConnect = conn.prepareStatement(insertNewConnectPs);
 
-		insertNewConnect.setTimestamp(1, timestamp);
-		insertNewConnect.setString(2, serverAddr);
-		insertNewConnect.setString(3, clientAddr);
-		insertNewConnect.setInt(4, clientPort);
-		insertNewConnect.executeUpdate();
-	}
+    OffsetDateTime timestamp = KeetoAuditUtil.timestampFromLogMessage(logMessage);
+    String serverAddr = logMessage.getValue("HOST");
+    String clientAddr = logMessage.getValue("OPENSSH_CLIENT_ADDR");
+    int clientPort = Integer.parseInt(logMessage.getValue("OPENSSH_CLIENT_PORT"));
+
+    insertNewConnect.setObject(1, timestamp);
+    insertNewConnect.setString(2, serverAddr);
+    insertNewConnect.setString(3, clientAddr);
+    insertNewConnect.setInt(4, clientPort);
+    insertNewConnect.executeUpdate();
+  }
 }

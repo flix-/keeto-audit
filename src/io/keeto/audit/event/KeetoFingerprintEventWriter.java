@@ -27,32 +27,32 @@ import org.syslog_ng.LogMessage;
 
 public class KeetoFingerprintEventWriter implements EventWriter {
 
-	private final String insertNewFingerprintPs = "INSERT INTO keeto_fingerprint VALUES (?, ?, ?)";
+  private final String insertNewFingerprintPs = "INSERT INTO keeto_fingerprint VALUES (?, ?, ?)";
 
-	private Connection conn;
-	
-	public KeetoFingerprintEventWriter(Connection conn) {
-		super();
-		if (conn == null) {
-			throw new IllegalArgumentException("conn == null");
-		}
-		this.conn = conn;
-	}
-	
-	@Override
-	public void write(LogMessage logMessage) throws SQLException {
-		if (logMessage == null) {
-			throw new IllegalArgumentException("logMessage == null");
-		}
-		PreparedStatement insertNewFingerprint = conn.prepareStatement(insertNewFingerprintPs);
+  private Connection conn;
 
-		String username = logMessage.getValue("OPENSSH_USERNAME");
-		String hashAlgo = logMessage.getValue("OPENSSH_HASH_ALGO");
-		String fingerprint = logMessage.getValue("OPENSSH_FINGERPRINT");
+  public KeetoFingerprintEventWriter(Connection conn) {
+    super();
+    if (conn == null) {
+      throw new IllegalArgumentException("conn == null");
+    }
+    this.conn = conn;
+  }
 
-		insertNewFingerprint.setString(1, username);
-		insertNewFingerprint.setString(2, hashAlgo);
-		insertNewFingerprint.setString(3, fingerprint);
-		insertNewFingerprint.executeUpdate();
-	}
+  @Override
+  public void write(LogMessage logMessage) throws SQLException {
+    if (logMessage == null) {
+      throw new IllegalArgumentException("logMessage == null");
+    }
+    PreparedStatement insertNewFingerprint = conn.prepareStatement(insertNewFingerprintPs);
+
+    String username = logMessage.getValue("OPENSSH_USERNAME");
+    String hashAlgo = logMessage.getValue("OPENSSH_HASH_ALGO");
+    String fingerprint = logMessage.getValue("OPENSSH_FINGERPRINT");
+
+    insertNewFingerprint.setString(1, username);
+    insertNewFingerprint.setString(2, hashAlgo);
+    insertNewFingerprint.setString(3, fingerprint);
+    insertNewFingerprint.executeUpdate();
+  }
 }

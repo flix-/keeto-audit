@@ -22,23 +22,23 @@ package io.keeto.audit.event;
 import java.sql.Connection;
 
 public class EventWriterFactory {
-	
-	public static EventWriter getEventWriter(String event, Connection conn) {
-		if (conn == null) {
-			throw new IllegalArgumentException("conn == null");
-		}
-		switch (event) {
-		case "OPENSSH_CONNECT":
-			return new OpenSSHConnectEventWriter(conn);
-		case "KEETO_FINGERPRINT":
-			return new KeetoFingerprintEventWriter(conn);
-		case "OPENSSH_AUTH_FAILURE":
-		case "OPENSSH_AUTH_SUCCESS":
-			return new OpenSSHAuthEventWriter(conn);
-		case "OPENSSH_DISCONNECT":
-			return new OpenSSHDisconnectEventWriter(conn);
-		default:
-			throw new IllegalArgumentException(event);
-		}
-	}
+
+  public static EventWriter getEventWriter(String event, Connection conn) {
+    if (conn == null) {
+      throw new IllegalArgumentException("conn == null");
+    }
+    switch (event) {
+    case "OPENSSH_CONNECT":
+      return new OpenSSHConnectEventWriter(conn);
+    case "KEETO_FINGERPRINT":
+      return new KeetoFingerprintEventWriter(conn);
+    case "OPENSSH_AUTH_FAILURE":
+    case "OPENSSH_AUTH_SUCCESS":
+      return new OpenSSHAuthEventWriter(conn);
+    case "OPENSSH_DISCONNECT":
+      return new OpenSSHDisconnectEventWriter(conn);
+    default:
+      throw new IllegalArgumentException(event);
+    }
+  }
 }

@@ -23,7 +23,7 @@ import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.sql.Timestamp;
+import java.time.OffsetDateTime;
 
 import org.syslog_ng.LogMessage;
 
@@ -31,33 +31,33 @@ import io.keeto.audit.util.KeetoAuditUtil;
 
 public class OpenSSHDisconnectEventWriter implements EventWriter {
 
-	private final String insertNewDisconnectPs = "INSERT INTO openssh_disconnect VALUES (?, ?)";
+  private final String insertNewDisconnectPs = "INSERT INTO openssh_disconnect VALUES (?, ?)";
 
-	private Connection conn;
-	
-	public OpenSSHDisconnectEventWriter(Connection conn) {
-		super();
-		if (conn == null) {
-			throw new IllegalArgumentException("conn == null");
-		}
-		this.conn = conn;
-	}
-	
-	@Override
-	public void write(LogMessage logMessage) throws SQLException {
-		if (logMessage == null) {
-			throw new IllegalArgumentException("logMessage == null");
-		}
-		PreparedStatement insertNewDisconnect = conn.prepareStatement(insertNewDisconnectPs);
+  private Connection conn;
 
-		BigDecimal sessionId = KeetoAuditUtil.getSessionIdFromDb(conn, logMessage);
-		if (sessionId == null) {
-			throw new IllegalStateException("session id not found");
-		}
-		Timestamp timestamp = KeetoAuditUtil.getTimestampFromLogMessage(logMessage);
+  public OpenSSHDisconnectEventWriter(Connection conn) {
+    super();
+    if (conn == null) {
+      throw new IllegalArgumentException("conn == null");
+    }
+    this.conn = conn;
+  }
 
-		insertNewDisconnect.setBigDecimal(1, sessionId);
-		insertNewDisconnect.setTimestamp(2, timestamp);
-		insertNewDisconnect.executeUpdate();
-	}
+  @Override
+  public void write(LogMessage logMessage) throws SQLException {
+    if (logMessage == null) {
+      throw new IllegalArgumentException("logMessage == null");
+    }
+    PreparedStatement insertNewDisconnect = conn.prepareStatement(insertNewDisconnectPs);
+
+    BigDecimal sessionId = KeetoAuditUtil.getSessionIdFromDb(conn, logMessage);
+    if (sessionId == null) {
+      throw new IllegalStateException("session id not found");
+    }
+    OffsetDateTime timestamp = KeetoAuditUtil.timestampFromLogMessage(logMessage);
+
+    insertNewDisconnect.setBigDecimal(1, sessionId);
+    insertNewDisconnect.setObject(2, timestamp);
+    insertNewDisconnect.executeUpdate();
+  }
 }

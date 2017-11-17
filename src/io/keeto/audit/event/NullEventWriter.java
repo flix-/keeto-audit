@@ -26,12 +26,12 @@ import org.syslog_ng.LogMessage;
 
 public class NullEventWriter implements EventWriter {
 
-	public NullEventWriter(Connection conn) {
-		super();
-	}
+  public NullEventWriter(Connection conn) {
+    super();
+  }
 
-	@Override
-	public void write(LogMessage logMessage) throws SQLException {
-		;
-	}
+  @Override
+  public void write(LogMessage logMessage) throws SQLException {
+    ;
+  }
 }
