@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Sebastian Roland <seroland86@gmail.com>
+ * Copyright (C) 2017-2018 Sebastian Roland <seroland86@gmail.com>
  *
  * This file is part of Keeto.
  *
@@ -23,20 +23,24 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
+import org.syslog_ng.InternalMessageSender;
 import org.syslog_ng.LogMessage;
+
+import io.keeto.audit.util.KeetoAuditUtil;
 
 public class KeetoFingerprintEventWriter implements EventWriter {
 
-  private final String insertNewFingerprintPs = "INSERT INTO keeto_fingerprint VALUES (?, ?, ?)";
+  private final String     LOG_PREFIX                       = KeetoAuditUtil.getLogPrefix();
 
-  private Connection conn;
+  private final String     insertFingerprintIfNotExistentPs = "INSERT INTO keeto_fingerprint SELECT * FROM (SELECT ? AS username, ? AS hash_algo, ? AS fingerprint) AS new_row WHERE NOT EXISTS (SELECT * FROM keeto_fingerprint WHERE username = ? AND hash_algo = ? AND fingerprint = ?)";
+  private final Connection dbConnection;
 
-  public KeetoFingerprintEventWriter(Connection conn) {
+  public KeetoFingerprintEventWriter(Connection dbConnection) {
     super();
-    if (conn == null) {
-      throw new IllegalArgumentException("conn == null");
+    if (dbConnection == null) {
+      throw new IllegalArgumentException("dbConnection == null");
     }
-    this.conn = conn;
+    this.dbConnection = dbConnection;
   }
 
   @Override
@@ -44,15 +48,27 @@ public class KeetoFingerprintEventWriter implements EventWriter {
     if (logMessage == null) {
       throw new IllegalArgumentException("logMessage == null");
     }
-    PreparedStatement insertNewFingerprint = conn.prepareStatement(insertNewFingerprintPs);
-
     String username = logMessage.getValue("OPENSSH_USERNAME");
     String hashAlgo = logMessage.getValue("OPENSSH_HASH_ALGO");
     String fingerprint = logMessage.getValue("OPENSSH_FINGERPRINT");
 
-    insertNewFingerprint.setString(1, username);
-    insertNewFingerprint.setString(2, hashAlgo);
-    insertNewFingerprint.setString(3, fingerprint);
-    insertNewFingerprint.executeUpdate();
+    try (PreparedStatement insertFingerprintIfNotExistent = dbConnection
+        .prepareStatement(insertFingerprintIfNotExistentPs)) {
+      insertFingerprintIfNotExistent.setString(1, username);
+      insertFingerprintIfNotExistent.setString(2, hashAlgo);
+      insertFingerprintIfNotExistent.setString(3, fingerprint);
+      insertFingerprintIfNotExistent.setString(4, username);
+      insertFingerprintIfNotExistent.setString(5, hashAlgo);
+      insertFingerprintIfNotExistent.setString(6, fingerprint);
+
+      int insertCount = insertFingerprintIfNotExistent.executeUpdate();
+      switch (insertCount) {
+      case 0:
+        InternalMessageSender.debug(LOG_PREFIX + "Fingerprint already present");
+        break;
+      default:
+        InternalMessageSender.debug(LOG_PREFIX + "Added new fingerprint");
+      }
+    }
   }
 }

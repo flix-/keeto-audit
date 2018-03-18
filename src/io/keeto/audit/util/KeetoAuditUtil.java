@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Sebastian Roland <seroland86@gmail.com>
+ * Copyright (C) 2017-2018 Sebastian Roland <seroland86@gmail.com>
  *
  * This file is part of Keeto.
  *
@@ -32,35 +32,38 @@ import org.syslog_ng.LogMessage;
 
 public class KeetoAuditUtil {
 
-  public static OffsetDateTime timestampFromLogMessage(LogMessage logMessage) {
+  public static String getLogPrefix() {
+    return "[KeetoAudit] ";
+  }
+
+  public static OffsetDateTime getTimestampFromLogMessage(LogMessage logMessage) {
     if (logMessage == null) {
       throw new IllegalArgumentException("logMessage == null");
     }
     long unixTime = Long.parseLong(logMessage.getValue("UNIXTIME"));
     Instant unixTimeInstant = Instant.ofEpochSecond(unixTime);
-
     return OffsetDateTime.ofInstant(unixTimeInstant, ZoneId.of("UTC"));
   }
 
-  public static BigDecimal getSessionIdFromDb(Connection conn, LogMessage logMessage) throws SQLException {
-    if (conn == null) {
-      throw new IllegalArgumentException("conn == null");
+  public static BigDecimal getSessionIdFromDb(Connection dbConnection, LogMessage logMessage) throws SQLException {
+    if (dbConnection == null) {
+      throw new IllegalArgumentException("dbConnection == null");
     }
     if (logMessage == null) {
       throw new IllegalArgumentException("logMessage == null");
     }
-    final String selectMaxSessionIdPs = "SELECT MAX(session_id) from openssh_connect WHERE server_addr = ? AND client_addr = ? AND client_port = ?";
-    PreparedStatement selectMaxSessionId = conn.prepareStatement(selectMaxSessionIdPs);
+    final String selectMaxSessionIdPs = "SELECT MAX(session_id) AS session_id from openssh_connect WHERE server_addr = ? AND client_addr = ? AND client_port = ?";
 
-    String serverAddr = logMessage.getValue("HOST");
-    String clientAddr = logMessage.getValue("OPENSSH_CLIENT_ADDR");
-    int clientPort = Integer.parseInt(logMessage.getValue("OPENSSH_CLIENT_PORT"));
-    selectMaxSessionId.setString(1, serverAddr);
-    selectMaxSessionId.setString(2, clientAddr);
-    selectMaxSessionId.setInt(3, clientPort);
-    ResultSet sessionIdResult = selectMaxSessionId.executeQuery();
-    sessionIdResult.first(); // MAX() always returns a row (either result or NULL)
-
-    return sessionIdResult.getBigDecimal(1);
+    try (PreparedStatement selectMaxSessionId = dbConnection.prepareStatement(selectMaxSessionIdPs)) {
+      String serverAddr = logMessage.getValue("HOST");
+      String clientAddr = logMessage.getValue("OPENSSH_CLIENT_ADDR");
+      int clientPort = Integer.parseInt(logMessage.getValue("OPENSSH_CLIENT_PORT"));
+      selectMaxSessionId.setString(1, serverAddr);
+      selectMaxSessionId.setString(2, clientAddr);
+      selectMaxSessionId.setInt(3, clientPort);
+      ResultSet sessionIdResult = selectMaxSessionId.executeQuery();
+      sessionIdResult.first(); // MAX() always returns a row (either result or NULL)
+      return sessionIdResult.getBigDecimal("session_id");
+    }
   }
 }

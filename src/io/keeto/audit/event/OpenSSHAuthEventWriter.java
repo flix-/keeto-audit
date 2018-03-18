@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Sebastian Roland <seroland86@gmail.com>
+ * Copyright (C) 2017-2018 Sebastian Roland <seroland86@gmail.com>
  *
  * This file is part of Keeto.
  *
@@ -25,22 +25,24 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
 
+import org.syslog_ng.InternalMessageSender;
 import org.syslog_ng.LogMessage;
 
 import io.keeto.audit.util.KeetoAuditUtil;
 
 public class OpenSSHAuthEventWriter implements EventWriter {
 
-  private final String insertNewAuthPs = "INSERT INTO openssh_auth VALUES (?, ?, ?, ?, ?, ?)";
+  private final String     LOG_PREFIX                   = KeetoAuditUtil.getLogPrefix();
 
-  private Connection conn;
+  private final String     insertNewAuthIfNotExistentPs = "INSERT INTO openssh_auth SELECT * FROM (SELECT ? AS session_id, ? AS timestamp, ? AS event, ? AS username, ? AS hash_algo, ? AS fingerprint) AS new_row WHERE NOT EXISTS (SELECT * FROM openssh_auth WHERE session_id = ? AND timestamp = ? AND event = ? AND username = ? AND hash_algo = ? AND fingerprint = ?)";
+  private final Connection dbConnection;
 
-  public OpenSSHAuthEventWriter(Connection conn) {
+  public OpenSSHAuthEventWriter(Connection dbConnection) {
     super();
-    if (conn == null) {
-      throw new IllegalArgumentException("conn == null");
+    if (dbConnection == null) {
+      throw new IllegalArgumentException("dbConnection == null");
     }
-    this.conn = conn;
+    this.dbConnection = dbConnection;
   }
 
   @Override
@@ -48,24 +50,38 @@ public class OpenSSHAuthEventWriter implements EventWriter {
     if (logMessage == null) {
       throw new IllegalArgumentException("logMessage == null");
     }
-    PreparedStatement insertNewAuth = conn.prepareStatement(insertNewAuthPs);
-
-    BigDecimal sessionId = KeetoAuditUtil.getSessionIdFromDb(conn, logMessage);
+    BigDecimal sessionId = KeetoAuditUtil.getSessionIdFromDb(dbConnection, logMessage);
     if (sessionId == null) {
-      throw new IllegalStateException("session id not found");
+      throw new IllegalStateException("Session id not found");
     }
-    OffsetDateTime timestamp = KeetoAuditUtil.timestampFromLogMessage(logMessage);
+    OffsetDateTime timestamp = KeetoAuditUtil.getTimestampFromLogMessage(logMessage);
     String event = logMessage.getValue("KEETO_AUDIT_EVENT");
     String username = logMessage.getValue("OPENSSH_USERNAME");
     String hashAlgo = logMessage.getValue("OPENSSH_HASH_ALGO");
     String fingerprint = logMessage.getValue("OPENSSH_FINGERPRINT");
 
-    insertNewAuth.setBigDecimal(1, sessionId);
-    insertNewAuth.setObject(2, timestamp);
-    insertNewAuth.setString(3, event);
-    insertNewAuth.setString(4, username);
-    insertNewAuth.setString(5, hashAlgo);
-    insertNewAuth.setString(6, fingerprint);
-    insertNewAuth.executeUpdate();
+    try (PreparedStatement insertNewAuthIfNotExistent = dbConnection.prepareStatement(insertNewAuthIfNotExistentPs)) {
+      insertNewAuthIfNotExistent.setBigDecimal(1, sessionId);
+      insertNewAuthIfNotExistent.setObject(2, timestamp);
+      insertNewAuthIfNotExistent.setString(3, event);
+      insertNewAuthIfNotExistent.setString(4, username);
+      insertNewAuthIfNotExistent.setString(5, hashAlgo);
+      insertNewAuthIfNotExistent.setString(6, fingerprint);
+      insertNewAuthIfNotExistent.setBigDecimal(7, sessionId);
+      insertNewAuthIfNotExistent.setObject(8, timestamp);
+      insertNewAuthIfNotExistent.setString(9, event);
+      insertNewAuthIfNotExistent.setString(10, username);
+      insertNewAuthIfNotExistent.setString(11, hashAlgo);
+      insertNewAuthIfNotExistent.setString(12, fingerprint);
+
+      int insertCount = insertNewAuthIfNotExistent.executeUpdate();
+      switch (insertCount) {
+      case 0:
+        InternalMessageSender.debug(LOG_PREFIX + "Authentication event already present");
+        break;
+      default:
+        InternalMessageSender.debug(LOG_PREFIX + "Added new authentication event");
+      }
+    }
   }
 }

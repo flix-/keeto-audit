@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Sebastian Roland <seroland86@gmail.com>
+ * Copyright (C) 2017-2018 Sebastian Roland <seroland86@gmail.com>
  *
  * This file is part of Keeto.
  *
@@ -21,24 +21,34 @@ package io.keeto.audit.event;
 
 import java.sql.Connection;
 
+import org.syslog_ng.InternalMessageSender;
+
+import io.keeto.audit.util.KeetoAuditUtil;
+
 public class EventWriterFactory {
 
-  public static EventWriter getEventWriter(String event, Connection conn) {
-    if (conn == null) {
-      throw new IllegalArgumentException("conn == null");
+  private static final String LOG_PREFIX = KeetoAuditUtil.getLogPrefix();
+
+  public static EventWriter getEventWriter(String event, Connection dbConnection) {
+    if (event == null) {
+      throw new IllegalArgumentException("event == null");
+    }
+    if (dbConnection == null) {
+      throw new IllegalArgumentException("dbConnection == null");
     }
     switch (event) {
     case "OPENSSH_CONNECT":
-      return new OpenSSHConnectEventWriter(conn);
+      return new OpenSSHConnectEventWriter(dbConnection);
     case "KEETO_FINGERPRINT":
-      return new KeetoFingerprintEventWriter(conn);
+      return new KeetoFingerprintEventWriter(dbConnection);
     case "OPENSSH_AUTH_FAILURE":
     case "OPENSSH_AUTH_SUCCESS":
-      return new OpenSSHAuthEventWriter(conn);
+      return new OpenSSHAuthEventWriter(dbConnection);
     case "OPENSSH_DISCONNECT":
-      return new OpenSSHDisconnectEventWriter(conn);
+      return new OpenSSHDisconnectEventWriter(dbConnection);
     default:
-      throw new IllegalArgumentException(event);
+      InternalMessageSender.warning(LOG_PREFIX + "Received unknown event: " + event);
+      return new UnknownEventWriter(dbConnection);
     }
   }
 }

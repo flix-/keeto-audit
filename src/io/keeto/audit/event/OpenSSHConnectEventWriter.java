@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Sebastian Roland <seroland86@gmail.com>
+ * Copyright (C) 2017-2018 Sebastian Roland <seroland86@gmail.com>
  *
  * This file is part of Keeto.
  *
@@ -24,22 +24,24 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
 
+import org.syslog_ng.InternalMessageSender;
 import org.syslog_ng.LogMessage;
 
 import io.keeto.audit.util.KeetoAuditUtil;
 
 public class OpenSSHConnectEventWriter implements EventWriter {
 
-  private final String insertNewConnectPs = "INSERT INTO openssh_connect VALUES (NULL, ?, ?, ?, ?)";
+  private final String     LOG_PREFIX         = KeetoAuditUtil.getLogPrefix();
 
-  private Connection conn;
+  private final String     insertNewConnectPs = "INSERT INTO openssh_connect VALUES (NULL, ?, ?, ?, ?)";
+  private final Connection dbConnection;
 
-  public OpenSSHConnectEventWriter(Connection conn) {
+  public OpenSSHConnectEventWriter(Connection dbConnection) {
     super();
-    if (conn == null) {
-      throw new IllegalArgumentException("conn == null");
+    if (dbConnection == null) {
+      throw new IllegalArgumentException("dbConnection == null");
     }
-    this.conn = conn;
+    this.dbConnection = dbConnection;
   }
 
   @Override
@@ -47,17 +49,25 @@ public class OpenSSHConnectEventWriter implements EventWriter {
     if (logMessage == null) {
       throw new IllegalArgumentException("logMessage == null");
     }
-    PreparedStatement insertNewConnect = conn.prepareStatement(insertNewConnectPs);
-
-    OffsetDateTime timestamp = KeetoAuditUtil.timestampFromLogMessage(logMessage);
+    OffsetDateTime timestamp = KeetoAuditUtil.getTimestampFromLogMessage(logMessage);
     String serverAddr = logMessage.getValue("HOST");
     String clientAddr = logMessage.getValue("OPENSSH_CLIENT_ADDR");
     int clientPort = Integer.parseInt(logMessage.getValue("OPENSSH_CLIENT_PORT"));
 
-    insertNewConnect.setObject(1, timestamp);
-    insertNewConnect.setString(2, serverAddr);
-    insertNewConnect.setString(3, clientAddr);
-    insertNewConnect.setInt(4, clientPort);
-    insertNewConnect.executeUpdate();
+    try (PreparedStatement insertNewConnect = dbConnection.prepareStatement(insertNewConnectPs)) {
+      insertNewConnect.setObject(1, timestamp);
+      insertNewConnect.setString(2, serverAddr);
+      insertNewConnect.setString(3, clientAddr);
+      insertNewConnect.setInt(4, clientPort);
+
+      int insertCount = insertNewConnect.executeUpdate();
+      switch (insertCount) {
+      case 1:
+        InternalMessageSender.debug(LOG_PREFIX + "Added new connection event");
+        break;
+      default:
+        InternalMessageSender.debug(LOG_PREFIX + "Failed to add connection event");
+      }
+    }
   }
 }

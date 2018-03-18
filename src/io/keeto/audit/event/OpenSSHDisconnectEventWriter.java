@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Sebastian Roland <seroland86@gmail.com>
+ * Copyright (C) 2017-2018 Sebastian Roland <seroland86@gmail.com>
  *
  * This file is part of Keeto.
  *
@@ -25,22 +25,24 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
 
+import org.syslog_ng.InternalMessageSender;
 import org.syslog_ng.LogMessage;
 
 import io.keeto.audit.util.KeetoAuditUtil;
 
 public class OpenSSHDisconnectEventWriter implements EventWriter {
 
-  private final String insertNewDisconnectPs = "INSERT INTO openssh_disconnect VALUES (?, ?)";
+  private final String     LOG_PREFIX                         = KeetoAuditUtil.getLogPrefix();
 
-  private Connection conn;
+  private final String     insertNewDisconnectIfNotExistentPs = "INSERT INTO openssh_disconnect SELECT * FROM (SELECT ? AS session_id, ? AS timestamp) AS new_row WHERE NOT EXISTS (SELECT * FROM openssh_disconnect WHERE session_id = ? AND timestamp = ?)";
+  private final Connection dbConnection;
 
-  public OpenSSHDisconnectEventWriter(Connection conn) {
+  public OpenSSHDisconnectEventWriter(Connection dbConnection) {
     super();
-    if (conn == null) {
-      throw new IllegalArgumentException("conn == null");
+    if (dbConnection == null) {
+      throw new IllegalArgumentException("dbConnection == null");
     }
-    this.conn = conn;
+    this.dbConnection = dbConnection;
   }
 
   @Override
@@ -48,16 +50,27 @@ public class OpenSSHDisconnectEventWriter implements EventWriter {
     if (logMessage == null) {
       throw new IllegalArgumentException("logMessage == null");
     }
-    PreparedStatement insertNewDisconnect = conn.prepareStatement(insertNewDisconnectPs);
-
-    BigDecimal sessionId = KeetoAuditUtil.getSessionIdFromDb(conn, logMessage);
+    BigDecimal sessionId = KeetoAuditUtil.getSessionIdFromDb(dbConnection, logMessage);
     if (sessionId == null) {
-      throw new IllegalStateException("session id not found");
+      throw new IllegalStateException("Session id not found");
     }
-    OffsetDateTime timestamp = KeetoAuditUtil.timestampFromLogMessage(logMessage);
+    OffsetDateTime timestamp = KeetoAuditUtil.getTimestampFromLogMessage(logMessage);
 
-    insertNewDisconnect.setBigDecimal(1, sessionId);
-    insertNewDisconnect.setObject(2, timestamp);
-    insertNewDisconnect.executeUpdate();
+    try (PreparedStatement insertNewDisconnectIfNotExistent = dbConnection
+        .prepareStatement(insertNewDisconnectIfNotExistentPs)) {
+      insertNewDisconnectIfNotExistent.setBigDecimal(1, sessionId);
+      insertNewDisconnectIfNotExistent.setObject(2, timestamp);
+      insertNewDisconnectIfNotExistent.setBigDecimal(3, sessionId);
+      insertNewDisconnectIfNotExistent.setObject(4, timestamp);
+
+      int insertCount = insertNewDisconnectIfNotExistent.executeUpdate();
+      switch (insertCount) {
+      case 0:
+        InternalMessageSender.debug(LOG_PREFIX + "Disconnect event already present");
+        break;
+      default:
+        InternalMessageSender.debug(LOG_PREFIX + "Added new disconnect event");
+      }
+    }
   }
 }

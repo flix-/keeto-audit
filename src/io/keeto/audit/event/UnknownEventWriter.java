@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Sebastian Roland <seroland86@gmail.com>
+ * Copyright (C) 2017-2018 Sebastian Roland <seroland86@gmail.com>
  *
  * This file is part of Keeto.
  *
@@ -24,9 +24,9 @@ import java.sql.SQLException;
 
 import org.syslog_ng.LogMessage;
 
-public class NullEventWriter implements EventWriter {
+public class UnknownEventWriter implements EventWriter {
 
-  public NullEventWriter(Connection conn) {
+  public UnknownEventWriter(Connection dbConnection) {
     super();
   }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Sebastian Roland <seroland86@gmail.com>
+ * Copyright (C) 2017-2018 Sebastian Roland <seroland86@gmail.com>
  *
  * This file is part of Keeto.
  *
@@ -29,14 +29,15 @@ import org.syslog_ng.StructuredLogDestination;
 
 import io.keeto.audit.event.EventWriter;
 import io.keeto.audit.event.EventWriterFactory;
+import io.keeto.audit.util.KeetoAuditUtil;
 
 public class SyslogNgMariaDbDestination extends StructuredLogDestination {
 
-  private final String LOG_PREFIX = "KeetoAudit: ";
+  private final String LOG_PREFIX                      = KeetoAuditUtil.getLogPrefix();
   private final String JDBC_CONNECTION_STRING_TEMPLATE = "jdbc:mariadb://%s:%d/%s?user=%s&password=%s&useServerPrepStmts=true&useLegacyDatetimeCode=false&serverTimezone=UTC";
 
-  private String jdbcConnectionString;
-  private Connection conn;
+  private String       jdbcConnectionString;
+  private Connection   dbConnection;
 
   public SyslogNgMariaDbDestination(long arg0) {
     super(arg0);
@@ -74,7 +75,8 @@ public class SyslogNgMariaDbDestination extends StructuredLogDestination {
       InternalMessageSender.debug(LOG_PREFIX + "db_password unknown");
       return false;
     }
-    jdbcConnectionString = String.format(JDBC_CONNECTION_STRING_TEMPLATE, dbAddr, Integer.parseInt(dbPort), dbName, dbUsername, dbPassword);
+    jdbcConnectionString = String.format(JDBC_CONNECTION_STRING_TEMPLATE, dbAddr, Integer.parseInt(dbPort), dbName,
+        dbUsername, dbPassword);
     InternalMessageSender.debug(LOG_PREFIX + "jdbcConnectionString: " + jdbcConnectionString);
     return true;
   }
@@ -82,18 +84,22 @@ public class SyslogNgMariaDbDestination extends StructuredLogDestination {
   @Override
   protected String getNameByUniqOptions() {
     InternalMessageSender.debug(LOG_PREFIX + "getNameByUniqOptions()");
-    return "KeetoAudit";
+    String uniqueDiskBufferName = new StringBuilder().append(getClass().getSimpleName()).append("_")
+        .append(getOption("db_addr")).append("_").append(getOption("db_port")).append("_").append(getOption("db_name"))
+        .toString();
+    InternalMessageSender.debug(LOG_PREFIX + "Unique disk buffer name: " + uniqueDiskBufferName);
+    return uniqueDiskBufferName;
   }
 
   @Override
   protected boolean isOpened() {
     InternalMessageSender.debug(LOG_PREFIX + "isOpened()");
-    if (conn == null) {
+    if (dbConnection == null) {
       return false;
     }
     boolean isOpened = false;
     try {
-      isOpened = conn.isValid(30);
+      isOpened = dbConnection.isValid(30);
     } catch (SQLException e) {
       InternalMessageSender.debug(LOG_PREFIX + e.getMessage());
       return false;
@@ -105,7 +111,7 @@ public class SyslogNgMariaDbDestination extends StructuredLogDestination {
   protected boolean open() {
     InternalMessageSender.debug(LOG_PREFIX + "open()");
     try {
-      conn = DriverManager.getConnection(jdbcConnectionString);
+      dbConnection = DriverManager.getConnection(jdbcConnectionString);
       return true;
     } catch (SQLException e) {
       InternalMessageSender.debug(LOG_PREFIX + e.getMessage());
@@ -120,7 +126,7 @@ public class SyslogNgMariaDbDestination extends StructuredLogDestination {
     }
     InternalMessageSender.debug(LOG_PREFIX + "send()");
     String event = logMessage.getValue("KEETO_AUDIT_EVENT");
-    EventWriter eventWriter = EventWriterFactory.getEventWriter(event, conn);
+    EventWriter eventWriter = EventWriterFactory.getEventWriter(event, dbConnection);
     try {
       eventWriter.write(logMessage);
     } catch (SQLException e) {
@@ -134,8 +140,8 @@ public class SyslogNgMariaDbDestination extends StructuredLogDestination {
   protected void close() {
     InternalMessageSender.debug(LOG_PREFIX + "close()");
     try {
-      if (conn != null && !conn.isClosed()) {
-        conn.close();
+      if (dbConnection != null && !dbConnection.isClosed()) {
+        dbConnection.close();
       }
     } catch (SQLException e) {
       InternalMessageSender.debug(LOG_PREFIX + e.getMessage());
