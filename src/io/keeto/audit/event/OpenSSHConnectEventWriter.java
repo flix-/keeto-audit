@@ -33,7 +33,7 @@ public class OpenSSHConnectEventWriter implements EventWriter {
 
   private final String     LOG_PREFIX         = KeetoAuditUtil.getLogPrefix();
 
-  private final String     insertNewConnectPs = "INSERT INTO openssh_connect VALUES (NULL, ?, ?, ?, ?)";
+  private final String     insertNewConnectPs = "INSERT INTO openssh_connect VALUES (NULL, ?, ?, ?, ?, ?)";
   private final Connection dbConnection;
 
   public OpenSSHConnectEventWriter(Connection dbConnection) {
@@ -51,14 +51,16 @@ public class OpenSSHConnectEventWriter implements EventWriter {
     }
     OffsetDateTime timestamp = KeetoAuditUtil.getTimestampFromLogMessage(logMessage);
     String serverAddr = logMessage.getValue("HOST");
+    int serverPort = Integer.parseInt(logMessage.getValue("OPENSSH_SERVER_PORT"));
     String clientAddr = logMessage.getValue("OPENSSH_CLIENT_ADDR");
     int clientPort = Integer.parseInt(logMessage.getValue("OPENSSH_CLIENT_PORT"));
 
     try (PreparedStatement insertNewConnect = dbConnection.prepareStatement(insertNewConnectPs)) {
       insertNewConnect.setObject(1, timestamp);
       insertNewConnect.setString(2, serverAddr);
-      insertNewConnect.setString(3, clientAddr);
-      insertNewConnect.setInt(4, clientPort);
+      insertNewConnect.setInt(3, serverPort);
+      insertNewConnect.setString(4, clientAddr);
+      insertNewConnect.setInt(5, clientPort);
 
       int insertCount = insertNewConnect.executeUpdate();
       switch (insertCount) {

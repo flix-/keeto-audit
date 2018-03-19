@@ -32,7 +32,7 @@ public class KeetoFingerprintEventWriter implements EventWriter {
 
   private final String     LOG_PREFIX                       = KeetoAuditUtil.getLogPrefix();
 
-  private final String     insertFingerprintIfNotExistentPs = "INSERT INTO keeto_fingerprint SELECT * FROM (SELECT ? AS username, ? AS hash_algo, ? AS fingerprint) AS new_row WHERE NOT EXISTS (SELECT * FROM keeto_fingerprint WHERE username = ? AND hash_algo = ? AND fingerprint = ?)";
+  private final String     insertFingerprintIfNotExistentPs = "INSERT INTO keeto_fingerprint SELECT * FROM (SELECT ? AS username, ? AS hash_algo, ? AS fingerprint) AS new_row WHERE NOT EXISTS (SELECT * FROM keeto_fingerprint WHERE hash_algo = ? AND fingerprint = ?)";
   private final Connection dbConnection;
 
   public KeetoFingerprintEventWriter(Connection dbConnection) {
@@ -57,9 +57,8 @@ public class KeetoFingerprintEventWriter implements EventWriter {
       insertFingerprintIfNotExistent.setString(1, username);
       insertFingerprintIfNotExistent.setString(2, hashAlgo);
       insertFingerprintIfNotExistent.setString(3, fingerprint);
-      insertFingerprintIfNotExistent.setString(4, username);
-      insertFingerprintIfNotExistent.setString(5, hashAlgo);
-      insertFingerprintIfNotExistent.setString(6, fingerprint);
+      insertFingerprintIfNotExistent.setString(4, hashAlgo);
+      insertFingerprintIfNotExistent.setString(5, fingerprint);
 
       int insertCount = insertFingerprintIfNotExistent.executeUpdate();
       switch (insertCount) {
