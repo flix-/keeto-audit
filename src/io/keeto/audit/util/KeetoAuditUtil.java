@@ -28,12 +28,37 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 
+import org.syslog_ng.LogDestination;
 import org.syslog_ng.LogMessage;
 
 public class KeetoAuditUtil {
 
-  public static String getLogPrefix() {
-    return "[KeetoAudit] ";
+  private static final String LOG_PREFIX                      = "[KeetoAudit] ";
+  private static final String JDBC_CONNECTION_STRING_TEMPLATE = "jdbc:mariadb://%s:%d/%s?user=%s&password=%s&useServerPrepStmts=true&useLegacyDatetimeCode=false&serverTimezone=UTC";
+
+  public static String getJdbcConnectionStringFromOptions(LogDestination logDestination) {
+    String dbAddr = logDestination.getOption("db_addr");
+    if (dbAddr == null) {
+      throw new IllegalArgumentException("Option db_addr unknown");
+    }
+    String dbPort = logDestination.getOption("db_port");
+    if (dbPort == null) {
+      throw new IllegalArgumentException("Option db_port unknown");
+    }
+    String dbName = logDestination.getOption("db_name");
+    if (dbName == null) {
+      throw new IllegalArgumentException("Option db_name unknown");
+    }
+    String dbUsername = logDestination.getOption("db_username");
+    if (dbUsername == null) {
+      throw new IllegalArgumentException("Option db_username unknown");
+    }
+    String dbPassword = logDestination.getOption("db_password");
+    if (dbPassword == null) {
+      throw new IllegalArgumentException("Option db_password unknown");
+    }
+    return String.format(JDBC_CONNECTION_STRING_TEMPLATE, dbAddr, Integer.parseInt(dbPort), dbName, dbUsername,
+        dbPassword);
   }
 
   public static OffsetDateTime getTimestampFromLogMessage(LogMessage logMessage) {
@@ -65,5 +90,9 @@ public class KeetoAuditUtil {
       sessionIdResult.first(); // MAX() always returns a row (either result or NULL)
       return sessionIdResult.getBigDecimal("session_id");
     }
+  }
+
+  public static String getLogPrefix() {
+    return LOG_PREFIX;
   }
 }

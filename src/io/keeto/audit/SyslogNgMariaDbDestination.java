@@ -33,8 +33,7 @@ import io.keeto.audit.util.KeetoAuditUtil;
 
 public class SyslogNgMariaDbDestination extends StructuredLogDestination {
 
-  private final String LOG_PREFIX                      = KeetoAuditUtil.getLogPrefix();
-  private final String JDBC_CONNECTION_STRING_TEMPLATE = "jdbc:mariadb://%s:%d/%s?user=%s&password=%s&useServerPrepStmts=true&useLegacyDatetimeCode=false&serverTimezone=UTC";
+  private final String LOG_PREFIX = KeetoAuditUtil.getLogPrefix();
 
   private String       jdbcConnectionString;
   private Connection   dbConnection;
@@ -47,36 +46,7 @@ public class SyslogNgMariaDbDestination extends StructuredLogDestination {
   @Override
   protected boolean init() {
     InternalMessageSender.debug(LOG_PREFIX + "init()");
-    /*
-     * retrieve options and construct jdbc connection string
-     */
-    String dbAddr = getOption("db_addr");
-    if (dbAddr == null) {
-      InternalMessageSender.debug(LOG_PREFIX + "db_addr unknown");
-      return false;
-    }
-    String dbPort = getOption("db_port");
-    if (dbPort == null) {
-      InternalMessageSender.debug(LOG_PREFIX + "db_port unknown");
-      return false;
-    }
-    String dbName = getOption("db_name");
-    if (dbName == null) {
-      InternalMessageSender.debug(LOG_PREFIX + "db_name unknown");
-      return false;
-    }
-    String dbUsername = getOption("db_username");
-    if (dbUsername == null) {
-      InternalMessageSender.debug(LOG_PREFIX + "db_username unknown");
-      return false;
-    }
-    String dbPassword = getOption("db_password");
-    if (dbPassword == null) {
-      InternalMessageSender.debug(LOG_PREFIX + "db_password unknown");
-      return false;
-    }
-    jdbcConnectionString = String.format(JDBC_CONNECTION_STRING_TEMPLATE, dbAddr, Integer.parseInt(dbPort), dbName,
-        dbUsername, dbPassword);
+    jdbcConnectionString = KeetoAuditUtil.getJdbcConnectionStringFromOptions(this);
     InternalMessageSender.debug(LOG_PREFIX + "jdbcConnectionString: " + jdbcConnectionString);
     return true;
   }
