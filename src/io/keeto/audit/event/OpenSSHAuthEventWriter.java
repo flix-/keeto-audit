@@ -32,9 +32,9 @@ import io.keeto.audit.util.KeetoAuditUtil;
 
 public class OpenSSHAuthEventWriter implements EventWriter {
 
-  private final String     LOG_PREFIX                   = KeetoAuditUtil.getLogPrefix();
+  private final String     LOG_PREFIX      = KeetoAuditUtil.getLogPrefix();
 
-  private final String     insertNewAuthIfNotExistentPs = "INSERT INTO openssh_auth SELECT * FROM (SELECT ? AS session_id, ? AS timestamp, ? AS event, ? AS username, ? AS hash_algo, ? AS fingerprint) AS new_row WHERE NOT EXISTS (SELECT * FROM openssh_auth WHERE session_id = ? AND timestamp = ? AND event = ? AND username = ? AND hash_algo = ? AND fingerprint = ?)";
+  private final String     insertNewAuthPs = "INSERT INTO openssh_auth VALUES (?, NULL, ?, ?, ?, ?, ?)";
   private final Connection dbConnection;
 
   public OpenSSHAuthEventWriter(Connection dbConnection) {
@@ -60,27 +60,21 @@ public class OpenSSHAuthEventWriter implements EventWriter {
     String hashAlgo = logMessage.getValue("OPENSSH_HASH_ALGO");
     String fingerprint = logMessage.getValue("OPENSSH_FINGERPRINT");
 
-    try (PreparedStatement insertNewAuthIfNotExistent = dbConnection.prepareStatement(insertNewAuthIfNotExistentPs)) {
-      insertNewAuthIfNotExistent.setBigDecimal(1, sessionId);
-      insertNewAuthIfNotExistent.setObject(2, timestamp);
-      insertNewAuthIfNotExistent.setString(3, event);
-      insertNewAuthIfNotExistent.setString(4, username);
-      insertNewAuthIfNotExistent.setString(5, hashAlgo);
-      insertNewAuthIfNotExistent.setString(6, fingerprint);
-      insertNewAuthIfNotExistent.setBigDecimal(7, sessionId);
-      insertNewAuthIfNotExistent.setObject(8, timestamp);
-      insertNewAuthIfNotExistent.setString(9, event);
-      insertNewAuthIfNotExistent.setString(10, username);
-      insertNewAuthIfNotExistent.setString(11, hashAlgo);
-      insertNewAuthIfNotExistent.setString(12, fingerprint);
+    try (PreparedStatement insertNewAuth = dbConnection.prepareStatement(insertNewAuthPs)) {
+      insertNewAuth.setBigDecimal(1, sessionId);
+      insertNewAuth.setObject(2, timestamp);
+      insertNewAuth.setString(3, event);
+      insertNewAuth.setString(4, username);
+      insertNewAuth.setString(5, hashAlgo);
+      insertNewAuth.setString(6, fingerprint);
 
-      int insertCount = insertNewAuthIfNotExistent.executeUpdate();
+      int insertCount = insertNewAuth.executeUpdate();
       switch (insertCount) {
-      case 0:
-        InternalMessageSender.debug(LOG_PREFIX + "Authentication event already present");
+      case 1:
+        InternalMessageSender.debug(LOG_PREFIX + "Added new authentication event");
         break;
       default:
-        InternalMessageSender.debug(LOG_PREFIX + "Added new authentication event");
+        InternalMessageSender.debug(LOG_PREFIX + "Failed to add authentication event");
       }
     }
   }
